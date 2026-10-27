@@ -1,0 +1,57 @@
+# Local development only. Credentials below are not for the public deployment.
+name: miniflux-queue
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: queue-dev-only
+      POSTGRES_DB: miniflux_queue
+    volumes:
+      - queue-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d miniflux_queue"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  app:
+    image: golang:1.26
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - go-modules:/go/pkg/mod
+      - go-build:/root/.cache/go-build
+    command: [sh, -c, "go build -o /tmp/miniflux . && exec /tmp/miniflux"]
+    environment:
+      DATABASE_URL: postgres://postgres:queue-dev-only@db/miniflux_queue?sslmode=disable
+      RUN_MIGRATIONS: "1"
+      CREATE_ADMIN: "1"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: queue-dev-only
+      BASE_URL: http://localhost:18080
+      LISTEN_ADDR: 0.0.0.0:8080
+      CLEANUP_ARCHIVE_READ_DAYS: "-1"
+      CLEANUP_ARCHIVE_UNREAD_DAYS: "-1"
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+  test:
+    image: golang:1.26
+    profiles: [test]
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - go-modules:/go/pkg/mod
+      - go-build:/root/.cache/go-build
+    environment:
+      TEST_DATABASE_URL: postgres://postgres:queue-dev-only@db/miniflux_queue?sslmode=disable
+    command: [sh, -c, "go test -race -count=1 ./... && go vet ./..."]
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  queue-db:
+  go-modules:
+  go-build:

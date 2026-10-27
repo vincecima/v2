@@ -270,6 +270,7 @@ type Entry struct {
 	CommentsURL string     `json:"comments_url"`
 	Title       string     `json:"title"`
 	Status      string     `json:"status"`
+	Bucket      string     `json:"bucket"`
 	Content     string     `json:"content"`
 	Language    string     `json:"language"`
 	Author      string     `json:"author"`
@@ -316,6 +317,7 @@ const (
 
 // Filter is used to filter entries.
 type Filter struct {
+	Bucket          string
 	Status          string
 	Offset          int
 	Limit           int
@@ -346,6 +348,7 @@ type EntryResultSet struct {
 
 // EntryIDsFilter holds optional filter and pagination parameters for the entry IDs endpoint.
 type EntryIDsFilter struct {
+	Bucket  string
 	Limit   int
 	Offset  int
 	Starred *bool

@@ -436,6 +436,22 @@ func (s *Storage) UpdateFeed(feed *model.Feed) (err error) {
 	return nil
 }
 
+// UpdateFeedAfterRefresh persists fetch results without overwriting settings
+// changed while the request was in flight, particularly the subscription state.
+func (s *Storage) UpdateFeedAfterRefresh(feed *model.Feed) error {
+	_, err := s.db.Exec(`UPDATE feeds SET
+		etag_header=$1, last_modified_header=$2, checked_at=$3,
+		parsing_error_msg=$4, parsing_error_count=$5, next_check_at=$6,
+		language=$7 WHERE id=$8 AND user_id=$9`,
+		feed.EtagHeader, feed.LastModifiedHeader, feed.CheckedAt,
+		feed.ParsingErrorMsg, feed.ParsingErrorCount, feed.NextCheckAt,
+		feed.Language, feed.ID, feed.UserID)
+	if err != nil {
+		return fmt.Errorf("store: unable to save feed refresh #%d: %w", feed.ID, err)
+	}
+	return nil
+}
+
 // UpdateFeedError persists the parsing error fields for the given feed.
 func (s *Storage) UpdateFeedError(feed *model.Feed) (err error) {
 	query := `

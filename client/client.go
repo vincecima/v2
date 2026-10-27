@@ -930,6 +930,9 @@ func buildEntryIDsFilterQueryString(path string, filter *EntryIDsFilter) string 
 	}
 
 	params := url.Values{}
+	if filter.Bucket != "" {
+		params.Set("bucket", filter.Bucket)
+	}
 	if filter.Limit > 0 {
 		params.Set("limit", strconv.Itoa(filter.Limit))
 	}
@@ -1234,6 +1237,9 @@ func (c *Client) UpdateEnclosureContext(ctx context.Context, enclosureID int64, 
 func buildFilterQueryString(path string, filter *Filter) string {
 	if filter != nil {
 		values := url.Values{}
+		if filter.Bucket != "" {
+			values.Set("bucket", filter.Bucket)
+		}
 
 		if filter.Status != "" {
 			values.Set("status", filter.Status)

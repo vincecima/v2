@@ -3689,8 +3689,8 @@ func TestFlushHistoryEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := regularUserClient.FlushHistory(); err != nil {
-		t.Fatal(err)
+	if err := regularUserClient.FlushHistory(); err == nil {
+		t.Fatal("history flush must be rejected while entries are retained")
 	}
 
 	readEntries, err := regularUserClient.Entries(&miniflux.Filter{Status: miniflux.EntryStatusRead})
@@ -3698,7 +3698,7 @@ func TestFlushHistoryEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if readEntries.Total != 0 {
+	if readEntries.Total != 2 {
 		t.Fatalf(`Invalid total, got %d`, readEntries.Total)
 	}
 }

@@ -364,48 +364,10 @@ func (s *Storage) RefreshFeedEntries(userID, feedID int64, entries model.Entries
 	return newEntries, nil
 }
 
-// ArchiveEntries deletes entries older than the given interval and records tombstones so they are not re-ingested.
-func (s *Storage) ArchiveEntries(status string, interval time.Duration, limit int) (int64, error) {
-	if interval < 0 || limit <= 0 {
-		return 0, nil
-	}
-
-	query := `
-		WITH to_delete AS (
-			SELECT id, feed_id, hash
-			FROM entries
-			WHERE
-				status=$1 AND
-				starred is false AND
-				share_code='' AND
-				created_at < now() - $2::interval
-			ORDER BY created_at ASC
-			FOR UPDATE SKIP LOCKED
-			LIMIT $3
-		), deleted AS (
-			DELETE FROM entries
-			USING to_delete
-			WHERE entries.id = to_delete.id
-			RETURNING entries.feed_id, entries.hash
-		)
-		INSERT INTO entry_tombstones (feed_id, hash)
-		SELECT feed_id, hash FROM deleted WHERE hash <> ''
-		ON CONFLICT (feed_id, hash) DO NOTHING
-	`
-
-	days := max(int(interval/(24*time.Hour)), 1)
-
-	result, err := s.db.Exec(query, status, fmt.Sprintf("%d days", days), limit)
-	if err != nil {
-		return 0, fmt.Errorf(`store: unable to archive %s entries: %v`, status, err)
-	}
-
-	count, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf(`store: unable to get the number of rows affected: %v`, err)
-	}
-
-	return count, nil
+// ArchiveEntries preserves all workflow entries, regardless of read status or age.
+// Upstream's scheduled cleanup still calls this method; session cleanup remains active.
+func (s *Storage) ArchiveEntries(_ string, _ time.Duration, _ int) (int64, error) {
+	return 0, nil
 }
 
 // SetEntriesStatus update the status of the given list of entries.
@@ -483,23 +445,13 @@ func (s *Storage) ToggleStarred(userID int64, entryID int64) error {
 	return nil
 }
 
-// FlushHistory deletes all read entries (non-starred, non-shared) and records tombstones to prevent re-ingestion.
-func (s *Storage) FlushHistory(userID int64) error {
-	query := `
-		WITH deleted AS (
-			DELETE FROM entries
-			WHERE user_id=$1 AND status=$2 AND starred is false AND share_code=''
-			RETURNING feed_id, hash
-		)
-		INSERT INTO entry_tombstones (feed_id, hash)
-		SELECT feed_id, hash FROM deleted WHERE hash <> ''
-		ON CONFLICT (feed_id, hash) DO NOTHING
-	`
-	if _, err := s.db.Exec(query, userID, model.EntryStatusRead); err != nil {
-		return fmt.Errorf(`store: unable to flush history: %v`, err)
-	}
+// ErrEntryRetention prevents legacy history flushing from deleting workflow items.
+var ErrEntryRetention = errors.New("history deletion is disabled: media queue entries are retained")
 
-	return nil
+// FlushHistory rejects the legacy destructive operation. Archive is now a bucket,
+// not permission to permanently delete an entry.
+func (s *Storage) FlushHistory(_ int64) error {
+	return ErrEntryRetention
 }
 
 // MarkAllAsRead updates all user entries to the read status.

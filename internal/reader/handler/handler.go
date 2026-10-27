@@ -217,6 +217,11 @@ func RefreshFeed(store *storage.Storage, userID, feedID int64, forceRefresh bool
 		return locale.NewLocalizedErrorWrapper(ErrFeedNotFound, "error.feed_not_found")
 	}
 
+	// A queued job or direct refresh must not restart an unsubscribed feed.
+	if originalFeed.Disabled {
+		return nil
+	}
+
 	weeklyEntryCount := 0
 	if config.Opts.PollingScheduler() == model.SchedulerEntryFrequency {
 		var weeklyCountErr error
@@ -372,7 +377,7 @@ func RefreshFeed(store *storage.Storage, userID, feedID int64, forceRefresh bool
 
 	originalFeed.ResetErrorCounter()
 
-	if storeErr := store.UpdateFeed(originalFeed); storeErr != nil {
+	if storeErr := store.UpdateFeedAfterRefresh(originalFeed); storeErr != nil {
 		localizedError := locale.NewLocalizedErrorWrapper(storeErr, "error.database_error", storeErr)
 		return getTranslatedLocalizedError(store, userID, originalFeed, localizedError)
 	}

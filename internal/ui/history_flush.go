@@ -6,16 +6,13 @@ package ui // import "miniflux.app/v2/internal/ui"
 import (
 	"net/http"
 
-	"miniflux.app/v2/internal/http/request"
 	"miniflux.app/v2/internal/http/response"
 )
 
 func (h *handler) flushHistory(w http.ResponseWriter, r *http.Request) {
-	err := h.store.FlushHistory(request.UserID(r))
-	if err != nil {
-		response.JSONServerError(w, r, err)
-		return
-	}
-
-	response.JSON(w, r, "OK")
+	response.NewBuilder(w, r).
+		WithStatus(http.StatusConflict).
+		WithHeader("Content-Type", "application/json").
+		WithBodyAsString(`{"error_message":"history deletion is disabled: media queue entries are retained"}`).
+		Write()
 }
