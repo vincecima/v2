@@ -119,6 +119,13 @@ func (h *handler) getEntriesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) findEntries(w http.ResponseWriter, r *http.Request, feedID int64, categoryID int64) {
+	bucket := request.QueryStringParam(r, "bucket", "")
+	if request.HasQueryParam(r, "bucket") {
+		if err := validator.ValidateEntryBucket(bucket); err != nil {
+			response.JSONBadRequest(w, r, err)
+			return
+		}
+	}
 	statuses := request.QueryStringParamList(r, "status")
 	for _, status := range statuses {
 		if err := validator.ValidateEntryStatus(status); err != nil {
@@ -179,11 +186,17 @@ func (h *handler) findEntries(w http.ResponseWriter, r *http.Request, feedID int
 		WithFeedID(feedID).
 		WithCategoryID(categoryID).
 		WithStatuses(statuses...).
+		WithBucket(bucket).
 		WithSorting(order, direction).
 		WithOffset(offset).
 		WithLimit(limit).
 		WithTags(tags...).
 		WithEnclosures()
+
+	// Bucket lists need deterministic ordering when several items share a date.
+	if bucket != "" && order != "id" {
+		builder.WithSorting("id", direction)
+	}
 
 	if request.HasQueryParam(r, "globally_visible") {
 		globallyVisible := request.QueryBoolParam(r, "globally_visible", true)
@@ -527,6 +540,13 @@ func (h *handler) fetchContentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) getEntryIDsHandler(w http.ResponseWriter, r *http.Request) {
+	bucket := request.QueryStringParam(r, "bucket", "")
+	if request.HasQueryParam(r, "bucket") {
+		if err := validator.ValidateEntryBucket(bucket); err != nil {
+			response.JSONBadRequest(w, r, err)
+			return
+		}
+	}
 	if request.HasQueryParam(r, "starred") {
 		starredValue := request.QueryStringParam(r, "starred", "")
 		if starredValue != "true" && starredValue != "false" {
@@ -545,6 +565,7 @@ func (h *handler) getEntryIDsHandler(w http.ResponseWriter, r *http.Request) {
 
 	limit, offset := parseEntryIDsParams(r)
 	builder := h.store.NewEntryQueryBuilder(request.UserID(r)).
+		WithBucket(bucket).
 		WithSorting("id", "DESC").
 		WithLimitAndMaximum(limit, model.MaxEntryIDsLimit).
 		WithOffset(offset)
@@ -571,9 +592,11 @@ func (h *handler) getEntryIDsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) flushHistoryHandler(w http.ResponseWriter, r *http.Request) {
-	loggedUserID := request.UserID(r)
-	go h.store.FlushHistory(loggedUserID)
-	response.JSONAccepted(w, r)
+	response.NewBuilder(w, r).
+		WithStatus(http.StatusConflict).
+		WithHeader("Content-Type", "application/json").
+		WithBodyAsString(`{"error_message":"history deletion is disabled: media queue entries are retained"}`).
+		Write()
 }
 
 func configureFilters(builder *storage.EntryQueryBuilder, r *http.Request) *storage.EntryQueryBuilder {

@@ -29,6 +29,7 @@ type Entry struct {
 	UserID      int64         `json:"user_id"`
 	FeedID      int64         `json:"feed_id"`
 	Status      string        `json:"status"`
+	Bucket      string        `json:"bucket"`
 	Hash        string        `json:"hash"`
 	Title       string        `json:"title"`
 	URL         string        `json:"url"`
@@ -49,6 +50,7 @@ type Entry struct {
 
 func NewEntry() *Entry {
 	return &Entry{
+		Bucket:     BucketInbox,
 		Enclosures: make(EnclosureList, 0),
 		Tags:       make([]string, 0),
 		Feed: &Feed{

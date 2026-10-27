@@ -126,6 +126,15 @@ func (e *EntryQueryBuilder) WithEntryIDs(entryIDs ...int64) *EntryQueryBuilder {
 	return e
 }
 
+// WithBucket filters entries by workflow bucket.
+func (e *EntryQueryBuilder) WithBucket(bucket string) *EntryQueryBuilder {
+	if bucket != "" {
+		e.conditions = append(e.conditions, fmt.Sprintf("e.bucket = $%d", len(e.args)+1))
+		e.args = append(e.args, bucket)
+	}
+	return e
+}
+
 // WithFeedID filter by feed ID.
 func (e *EntryQueryBuilder) WithFeedID(feedID int64) *EntryQueryBuilder {
 	if feedID > 0 {
@@ -315,6 +324,7 @@ func (e *EntryQueryBuilder) fetchEntries(withCount bool) (model.Entries, int, er
 			e.share_code,
 			` + e.contentColumn() + `,
 			e.status,
+			e.bucket,
 			e.starred,
 			e.reading_time,
 			e.created_at,
@@ -387,6 +397,7 @@ func (e *EntryQueryBuilder) fetchEntries(withCount bool) (model.Entries, int, er
 			&entry.ShareCode,
 			&entry.Content,
 			&entry.Status,
+			&entry.Bucket,
 			&entry.Starred,
 			&entry.ReadingTime,
 			&entry.CreatedAt,

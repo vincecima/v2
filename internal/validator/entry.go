@@ -48,6 +48,16 @@ func ValidateEntryStatus(status string) error {
 	return fmt.Errorf(`invalid entry status, valid status values are: %q and %q`, model.EntryStatusRead, model.EntryStatusUnread)
 }
 
+// ValidateEntryBucket makes sure the workflow bucket is valid.
+func ValidateEntryBucket(bucket string) error {
+	switch bucket {
+	case model.BucketInbox, model.BucketQueue, model.BucketLater, model.BucketArchive, model.BucketSkipped:
+		return nil
+	default:
+		return errors.New(`invalid bucket, valid values are: "inbox", "queue", "later", "archive", "skipped"`)
+	}
+}
+
 // ValidateEntryOrder makes sure the sorting order is valid.
 func ValidateEntryOrder(order string) error {
 	switch order {

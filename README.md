@@ -1,3 +1,5 @@
+> **Personal media queue fork:** Work in progress based on Miniflux. See [development status and API](docs/media-queue.md) and the [implementation plan](docs/media-queue-plan.md). The bucket API is implemented; the bucket UI and manual URL capture are still pending.
+
 Miniflux 2
 ==========
 
